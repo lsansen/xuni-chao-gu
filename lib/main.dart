@@ -1946,7 +1946,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: SmartRefresher(
+      body: pull.RefreshControl(
         controller: _refreshController,
         enablePullDown: true,
         enablePullUp: false,

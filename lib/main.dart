@@ -1104,7 +1104,7 @@ class _KLinePageState extends State<KLinePage> {
                               enabled: true,
                               touchTooltipData: LineTouchTooltipData(
                                 getTooltipColor: (touchedSpot) => Colors.white,
-                                tooltipBorderRadius: 8,
+                                tooltipBorderRadius: BorderRadius.circular(8),
                                 getTooltipItems: (touchedSpots) {
                                   if (touchedSpots.isEmpty) return [];
                                   final index = touchedSpots[0].x.toInt();

@@ -1946,7 +1946,10 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: pull.RefreshIndicator(
+      body: SmartRefresher(
+        controller: _refreshController,
+        enablePullDown: true,
+        enablePullUp: false,
         onRefresh: () async {
           await _loadStockData();
         },

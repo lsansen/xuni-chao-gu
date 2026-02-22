@@ -5,7 +5,7 @@ import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:pull_to_refresh/pull_to_refresh.dart';
+import 'package:pull_to_refresh/pull_to_refresh.dart' as pull;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -1196,7 +1196,7 @@ class _HomePageState extends State<HomePage> {
 
   // 行业分类
   Industry? _selectedIndustry;
-  final RefreshController _refreshController = RefreshController();
+  final pull.RefreshController _refreshController = pull.RefreshController();
 
   // 自动刷新定时器
   Timer? _refreshTimer;
@@ -1946,7 +1946,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: RefreshIndicator(
+      body: pull.RefreshIndicator(
         onRefresh: () async {
           await _loadStockData();
         },

@@ -14,7 +14,10 @@ if (flutterVersionName == null) {
     flutterVersionName = "1.0"
 }
 
-apply plugin: 'com.android.application'
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+}
 
 android {
     namespace "com.example.xuni_chao_gu"
@@ -39,9 +42,4 @@ android {
             signingConfig signingConfigs.debug
         }
     }
-}
-
-flutter {
-    source '../..'
-    version flutter.versionCode
 }

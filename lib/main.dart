@@ -512,7 +512,7 @@ class _TradingTimeBannerState extends State<TradingTimeBanner> {
         });
       },
       child: Container(
-        color: _statusColor.withOpacity(0.1),
+        color: _statusColor.withValues(alpha: 0.1),
         padding: const EdgeInsets.all(12),
         child: Column(
           children: [
@@ -724,7 +724,7 @@ class _PortfolioDetailPageState extends State<PortfolioDetailPage> {
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
+                    color: Colors.grey.withValues(alpha: 0.1),
                     spreadRadius: 1,
                     blurRadius: 3,
                   ),
@@ -1728,10 +1728,10 @@ class _HomePageState extends State<HomePage> {
                       );
                     }
                     
-                    return const ListTile(
+                    return ListTile(
                       title: Text('加载中...'),
-                      subtitle: const Text('正在获取股票数据'),
-                      trailing: const SizedBox(
+                      subtitle: Text('正在获取股票数据'),
+                      trailing: SizedBox(
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),

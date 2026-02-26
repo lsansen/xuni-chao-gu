@@ -16,8 +16,10 @@ class Stock {
   final double currentPrice;
   final double change;
   final double changePercent;
-  List<double> historicalPrices;
-  List<String> historicalDates;
+  final List<double> historicalPrices;
+  final List<String> historicalDates;
+  final bool hasData;
+  final String? cacheTimestamp;
 
   Stock({
     required this.code,
@@ -27,7 +29,69 @@ class Stock {
     required this.changePercent,
     required this.historicalPrices,
     required this.historicalDates,
+    this.hasData = false,
+    this.cacheTimestamp,
   });
+
+  Stock.empty({
+    required this.code,
+    required this.name,
+    this.currentPrice = 0.0,
+    this.change = 0.0,
+    this.changePercent = 0.0,
+    this.historicalPrices = const [],
+    this.historicalDates = const [],
+    this.hasData = false,
+    this.cacheTimestamp,
+  });
+
+  Stock.fromCache({
+    required this.code,
+    required this.name,
+    required this.currentPrice,
+    required this.change,
+    required this.changePercent,
+    required this.historicalPrices,
+    required this.historicalDates,
+    required this.cacheTimestamp,
+  }) : hasData = true;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'code': code,
+      'name': name,
+      'currentPrice': currentPrice,
+      'change': change,
+      'changePercent': changePercent,
+      'historicalPrices': historicalPrices,
+      'historicalDates': historicalDates,
+      'hasData': hasData,
+      'cacheTimestamp': cacheTimestamp,
+    };
+  }
+
+  static Stock fromJson(Map<String, dynamic> json) {
+    final prices = List<double>.from(json['historicalPrices'] ?? []);
+    final dates = List<String>.from(json['historicalDates'] ?? []);
+    
+    if (json['hasData'] == true) {
+      return Stock.fromCache(
+        code: json['code'],
+        name: json['name'],
+        currentPrice: json['currentPrice']?.toDouble() ?? 0.0,
+        change: json['change']?.toDouble() ?? 0.0,
+        changePercent: json['changePercent']?.toDouble() ?? 0.0,
+        historicalPrices: prices,
+        historicalDates: dates,
+        cacheTimestamp: json['cacheTimestamp'],
+      );
+    }
+    
+    return Stock.empty(
+      code: json['code'],
+      name: json['name'],
+    );
+  }
 }
 
 // 持仓模型
@@ -135,12 +199,12 @@ class TushareApi {
     headers: {
       'Content-Type': 'application/json',
     },
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 10),
+    connectTimeout: const Duration(seconds: 15),
+    receiveTimeout: const Duration(seconds: 15),
   ));
 
   // 获取股票近30天日线数据
-  Future<Stock> getStockData(String code, {String period = 'daily'}) async {
+  Future<Stock> getStockData(String code, {String period = 'daily', SharedPreferences? prefs}) async {
     try {
       final response = await _dio.post(
         baseUrl,
@@ -161,7 +225,11 @@ class TushareApi {
         if (data['code'] == 0) {
           final List<dynamic> items = data['data']['items'];
           if (items.isEmpty) {
-            throw Exception('无数据');
+            // 网络请求成功但无数据，返回空股票
+            return Stock.empty(
+              code: code,
+              name: _getStockName(code),
+            );
           }
 
           items.sort((a, b) => a[0].compareTo(b[0]));
@@ -170,6 +238,27 @@ class TushareApi {
           final List<String> dates = items.map<String>((item) => item[0].toString()).toList();
 
           final latest = items.last;
+          
+          // 网络请求成功，保存到缓存
+          if (prefs != null) {
+            final stock = Stock(
+              code: code,
+              name: _getStockName(code),
+              currentPrice: latest[1].toDouble(),
+              change: latest[2]?.toDouble() ?? 0,
+              changePercent: latest[3]?.toDouble() ?? 0,
+              historicalPrices: prices,
+              historicalDates: dates,
+              hasData: true,
+              cacheTimestamp: DateTime.now().toIso8601String(),
+            );
+            
+            final cacheKey = 'stock_cache_$code';
+            await prefs.setString(cacheKey, jsonEncode(stock.toJson()));
+            
+            return stock;
+          }
+          
           return Stock(
             code: code,
             name: _getStockName(code),
@@ -178,16 +267,66 @@ class TushareApi {
             changePercent: latest[3]?.toDouble() ?? 0,
             historicalPrices: prices,
             historicalDates: dates,
+            hasData: true,
+            cacheTimestamp: DateTime.now().toIso8601String(),
           );
         } else {
+          // API 返回错误，尝试使用缓存
+          if (prefs != null) {
+            final cachedData = await _getCachedStockData(code, prefs);
+            if (cachedData != null && cachedData.hasData) {
+              return cachedData;
+            }
+          }
           throw Exception('API错误: ${data['msg']}');
         }
       } else {
+        // 网络请求失败，尝试使用缓存
+        if (prefs != null) {
+          final cachedData = await _getCachedStockData(code, prefs);
+          if (cachedData != null && cachedData.hasData) {
+            return cachedData;
+          }
+        }
         throw Exception('请求失败: ${response.statusCode}');
       }
     } catch (e) {
-      rethrow;
+      // 网络请求异常，尝试使用缓存
+      if (prefs != null) {
+        final cachedData = await _getCachedStockData(code, prefs);
+        if (cachedData != null && cachedData.hasData) {
+          return cachedData;
+        }
+      }
+      // 如果没有缓存数据，则返回空股票
+      return Stock.empty(
+        code: code,
+        name: _getStockName(code),
+      );
     }
+  }
+
+  // 从缓存获取股票数据
+  Future<Stock?> _getCachedStockData(String code, SharedPreferences prefs) async {
+    try {
+      final cacheKey = 'stock_cache_$code';
+      final cachedJson = prefs.getString(cacheKey);
+      if (cachedJson != null) {
+        final jsonMap = jsonDecode(cachedJson) as Map<String, dynamic>;
+        final stock = Stock.fromJson(jsonMap);
+        
+        // 检查缓存是否过期（24小时）
+        if (stock.cacheTimestamp != null) {
+          final cacheTime = DateTime.parse(stock.cacheTimestamp!);
+          if (DateTime.now().difference(cacheTime).inHours < 24) {
+            return stock;
+          }
+        }
+      }
+    } catch (e) {
+      print('读取缓存失败: $e');
+    }
+    return null;
   }
 
   // 获取30天前的日期
@@ -1247,9 +1386,9 @@ class _HomePageState extends State<HomePage> {
     try {
       for (final item in _portfolio) {
         try {
-          await _tushareApi.getStockData(item.stockCode);
+          await _tushareApi.getStockData(item.stockCode, prefs: _prefs);
         } catch (e) {
-          print('刷新股票 ${item.stockCode} 失败: $e');
+          // 静默处理刷新失败，不影响用户体验
         }
       }
       _calculateTotalAssets();
@@ -1257,7 +1396,7 @@ class _HomePageState extends State<HomePage> {
         setState(() {});
       }
     } catch (e) {
-      print('自动刷新失败: $e');
+      // 静默处理自动刷新失败
     }
   }
 
@@ -1282,7 +1421,6 @@ class _HomePageState extends State<HomePage> {
   Future<void> _loadStockData() async {
     setState(() {
       _isLoading = true;
-      _errorMessage = '';
     });
     try {
       // 加载所有行业股票
@@ -1293,10 +1431,6 @@ class _HomePageState extends State<HomePage> {
       _selectedIndustry = TushareApi._industries[0];
       _filteredStocks = _selectedIndustry!.stocks;
       setState(() {});
-    } catch (e) {
-      setState(() {
-        _errorMessage = '数据加载失败: $e';
-      });
     } finally {
       setState(() {
         _isLoading = false;
@@ -1306,7 +1440,17 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _buyStock(StockBasic stockBasic) async {
     try {
-      final stock = await _tushareApi.getStockData(stockBasic.code);
+      final stock = await _tushareApi.getStockData(stockBasic.code, prefs: _prefs);
+      
+      if (!stock.hasData) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('暂无行情数据，无法交易')),
+          );
+        }
+        return;
+      }
+      
       final buyQuantity = 100;
       final cost = stock.currentPrice * buyQuantity;
 
@@ -1361,7 +1505,7 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('买入失败: $e')),
+          const SnackBar(content: Text('网络连接失败，无法执行交易')),
         );
       }
     }
@@ -1369,7 +1513,17 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _sellStock(StockBasic stockBasic) async {
     try {
-      final stock = await _tushareApi.getStockData(stockBasic.code);
+      final stock = await _tushareApi.getStockData(stockBasic.code, prefs: _prefs);
+      
+      if (!stock.hasData) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('暂无行情数据，无法交易')),
+          );
+        }
+        return;
+      }
+      
       final index = _portfolio.indexWhere((item) => item.stockCode == stock.code);
       if (index == -1) {
         if (mounted) {
@@ -1476,7 +1630,7 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('卖出失败: $e')),
+          const SnackBar(content: Text('网络连接失败，无法执行交易')),
         );
       }
     }

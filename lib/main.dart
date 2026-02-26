@@ -129,7 +129,7 @@ class StockBasic {
 // Tushare API 服务
 class TushareApi {
   static const String baseUrl = 'https://api.tushare.pro';
-  static const String token = '替换成你自己的Tushare Token';
+  static const String token = '70e3e4aecee5acbd4292ca6fcd7503be2cd030f49617298bb9a11c34';
 
   final Dio _dio = Dio(BaseOptions(
     headers: {

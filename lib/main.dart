@@ -216,37 +216,68 @@ class TushareApi {
             'start_date': _getDaysAgo(period),
             'end_date': _getToday(),
           },
-          'fields': 'trade_date,close,change,pct_chg',
+          'fields': 'ts_code,trade_date,close,open,high,low,change,pct_chg',
         },
       );
 
       if (response.statusCode == 200) {
         final data = response.data;
-        if (data['code'] == 0) {
+        
+        // 调试输出
+        print('API Response for $code: $data');
+        
+        if (data['code'] == 0 && data['data'] != null) {
           final List<dynamic> items = data['data']['items'];
+          
           if (items.isEmpty) {
-            // 网络请求成功但无数据，返回空股票
             return Stock.empty(
               code: code,
               name: _getStockName(code),
             );
           }
 
-          items.sort((a, b) => a[0].compareTo(b[0]));
+          // 解析数据 - Tushare 返回的格式是 [ts_code, trade_date, close, open, high, low, change, pct_chg]
+          final List<double> prices = [];
+          final List<String> dates = [];
+          
+          for (final item in items) {
+            if (item is List && item.length >= 8) {
+              dates.add(item[1].toString());
+              prices.add((item[2] ?? 0).toDouble());
+            } else if (item is Map) {
+              dates.add(item['trade_date']?.toString() ?? '');
+              prices.add((item['close'] ?? 0).toDouble());
+            }
+          }
+          
+          if (prices.isEmpty) {
+            return Stock.empty(
+              code: code,
+              name: _getStockName(code),
+            );
+          }
 
-          final List<double> prices = items.map<double>((item) => item[1].toDouble()).toList();
-          final List<String> dates = items.map<String>((item) => item[0].toString()).toList();
-
-          final latest = items.last;
+          // 获取最新数据
+          final latestPrice = prices.last;
+          final latestDate = dates.last;
+          
+          // 计算涨跌幅
+          double change = 0;
+          double changePercent = 0;
+          if (prices.length >= 2) {
+            final previousPrice = prices[prices.length - 2];
+            change = latestPrice - previousPrice;
+            changePercent = previousPrice != 0 ? (change / previousPrice) * 100 : 0;
+          }
           
           // 网络请求成功，保存到缓存
           if (prefs != null) {
             final stock = Stock(
               code: code,
               name: _getStockName(code),
-              currentPrice: latest[1].toDouble(),
-              change: latest[2]?.toDouble() ?? 0,
-              changePercent: latest[3]?.toDouble() ?? 0,
+              currentPrice: latestPrice,
+              change: change,
+              changePercent: changePercent,
               historicalPrices: prices,
               historicalDates: dates,
               hasData: true,
@@ -262,9 +293,9 @@ class TushareApi {
           return Stock(
             code: code,
             name: _getStockName(code),
-            currentPrice: latest[1].toDouble(),
-            change: latest[2]?.toDouble() ?? 0,
-            changePercent: latest[3]?.toDouble() ?? 0,
+            currentPrice: latestPrice,
+            change: change,
+            changePercent: changePercent,
             historicalPrices: prices,
             historicalDates: dates,
             hasData: true,
@@ -278,7 +309,10 @@ class TushareApi {
               return cachedData;
             }
           }
-          throw Exception('API错误: ${data['msg']}');
+          return Stock.empty(
+            code: code,
+            name: _getStockName(code),
+          );
         }
       } else {
         // 网络请求失败，尝试使用缓存
@@ -288,7 +322,10 @@ class TushareApi {
             return cachedData;
           }
         }
-        throw Exception('请求失败: ${response.statusCode}');
+        return Stock.empty(
+          code: code,
+          name: _getStockName(code),
+        );
       }
     } catch (e) {
       // 网络请求异常，尝试使用缓存
@@ -298,7 +335,6 @@ class TushareApi {
           return cachedData;
         }
       }
-      // 如果没有缓存数据，则返回空股票
       return Stock.empty(
         code: code,
         name: _getStockName(code),

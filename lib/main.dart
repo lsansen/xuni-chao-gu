@@ -223,32 +223,63 @@ class TushareApi {
       if (response.statusCode == 200) {
         final data = response.data;
         
-        // 调试输出
-        print('API Response for $code: $data');
+        // 调试输出 API 响应
+        print('=== API Response for $code ===');
+        print('Response data: $data');
+        print('=================================');
         
-        if (data['code'] == 0 && data['data'] != null) {
-          final List<dynamic> items = data['data']['items'];
+        // 检查响应状态
+        if (data is! Map) {
+          print('Error: Response data is not a Map');
+          return Stock.empty(code: code, name: _getStockName(code));
+        }
+        
+        final codeValue = data['code'];
+        print('Response code: $codeValue');
+        
+        if (codeValue == 0 && data['data'] != null) {
+          final dataField = data['data'];
+          print('Data field: $dataField');
           
-          if (items.isEmpty) {
-            return Stock.empty(
-              code: code,
-              name: _getStockName(code),
-            );
+          if (dataField is! Map) {
+            print('Error: data field is not a Map');
+            return Stock.empty(code: code, name: _getStockName(code));
+          }
+          
+          final items = dataField['items'];
+          print('Items: $items');
+          
+          if (items == null || items is! List || items.isEmpty) {
+            return Stock.empty(code: code, name: _getStockName(code));
           }
 
           // 解析数据 - Tushare 返回的格式是 [ts_code, trade_date, close, open, high, low, change, pct_chg]
           final List<double> prices = [];
           final List<String> dates = [];
           
-          for (final item in items) {
-            if (item is List && item.length >= 8) {
-              dates.add(item[1].toString());
-              prices.add((item[2] ?? 0).toDouble());
+          print('Parsing ${items.length} items...');
+          
+          for (int i = 0; i < items.length; i++) {
+            final item = items[i];
+            print('Item[$i]: $item (type: ${item.runtimeType})');
+            
+            if (item is List && item.isNotEmpty) {
+              print('  Item is List, length: ${item.length}');
+              if (item.length >= 3) {
+                dates.add(item[1].toString());
+                final price = (item[2] ?? 0).toDouble();
+                print('  Added price: $price');
+                prices.add(price);
+              }
             } else if (item is Map) {
+              print('  Item is Map: $item');
               dates.add(item['trade_date']?.toString() ?? '');
               prices.add((item['close'] ?? 0).toDouble());
             }
           }
+          
+          print('Parsed prices: $prices');
+          print('Parsed dates: $dates');
           
           if (prices.isEmpty) {
             return Stock.empty(

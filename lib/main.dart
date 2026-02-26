@@ -1430,6 +1430,16 @@ class _HomePageState extends State<HomePage> {
       }
       _selectedIndustry = TushareApi._industries[0];
       _filteredStocks = _selectedIndustry!.stocks;
+      
+      // 获取所有股票的实时数据
+      for (final stockBasic in _allStocks) {
+        try {
+          await _tushareApi.getStockData(stockBasic.code, prefs: _prefs);
+        } catch (e) {
+          // 静默处理，不影响其他股票的加载
+        }
+      }
+      
       setState(() {});
     } finally {
       setState(() {

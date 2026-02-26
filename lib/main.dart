@@ -16,8 +16,8 @@ class Stock {
   final double currentPrice;
   final double change;
   final double changePercent;
-  final List<double> historicalPrices;
-  final List<String> historicalDates;
+  List<double> historicalPrices;
+  List<String> historicalDates;
   final bool hasData;
   final String? cacheTimestamp;
 

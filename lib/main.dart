@@ -1794,7 +1794,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                 );
                 return FutureBuilder<Stock>(
-                  future: _tushareApi.getStockData(item.stockCode),
+                  future: _tushareApi.getStockData(item.stockCode, prefs: _prefs),
                   builder: (context, snapshot) {
                     if (snapshot.hasError) {
                       return ListTile(
@@ -1959,7 +1959,7 @@ class _HomePageState extends State<HomePage> {
               itemBuilder: (context, index) {
                 final stockBasic = _filteredStocks[index];
                 return FutureBuilder<Stock>(
-                  future: _tushareApi.getStockData(stockBasic.code),
+                  future: _tushareApi.getStockData(stockBasic.code, prefs: _prefs),
                   builder: (context, snapshot) {
                     if (snapshot.hasError) {
                       return ListTile(
@@ -2037,7 +2037,7 @@ class _HomePageState extends State<HomePage> {
                       trailing: trailingWidget,
                       onTap: () async {
                         try {
-                          final stock = snapshot.data ?? await _tushareApi.getStockData(stockBasic.code);
+                          final stock = snapshot.data ?? await _tushareApi.getStockData(stockBasic.code, prefs: _prefs);
                           if (mounted) {
                             Navigator.push(
                               context,
@@ -2049,7 +2049,7 @@ class _HomePageState extends State<HomePage> {
                         } catch (e) {
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('加载失败: $e')),
+                              const SnackBar(content: Text('加载失败，请检查网络后重试')),
                             );
                           }
                         }

@@ -2,9 +2,9 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -19,7 +19,7 @@ jobs:
       with:
         flutter-version: '3.41.2'
         channel: 'stable'
-        cache: false
+        cache: true
 
     - name: Clean Flutter cache
       run: |

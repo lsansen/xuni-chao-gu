@@ -370,7 +370,8 @@ class StockBasic {
 // Tushare API 服务
 class TushareApi {
   static const String baseUrl = 'https://api.tushare.pro';
-  static const String token = '70e3e4aecee5acbd4292ca6fcd7503be2cd030f49617298bb9a11c34';
+  // 注意：生产环境中应该使用环境变量或配置文件来存储API密钥
+  static const String token = 'YOUR_TUSHARE_API_TOKEN'; // 请替换为您的Tushare API密钥
 
   final Dio _dio = Dio(BaseOptions(
     headers: {
@@ -407,7 +408,7 @@ class TushareApi {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
             'Referer': 'https://xueqiu.com/',
-            'Cookie': 'xq_a_token=your_token_here', // 需要替换为有效的token
+            'Cookie': 'xq_a_token=YOUR_XUEQIU_TOKEN', // 请替换为您的雪球API token
           },
         ),
         queryParameters: {

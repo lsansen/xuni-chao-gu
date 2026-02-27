@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:gbk_codec/gbk_codec.dart';
 
 // API提供者枚举
 enum ApiProvider {
@@ -559,7 +560,7 @@ class TushareApi {
       final response = await _dio.get(
         'http://qt.gtimg.cn/q=$tencentCode',
         options: Options(
-          responseType: ResponseType.plain,
+          responseType: ResponseType.bytes,
           headers: {
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Encoding': 'gzip, deflate',
@@ -569,7 +570,9 @@ class TushareApi {
       );
 
       if (response.statusCode == 200) {
-        final data = response.data;
+        // 使用GBK解码响应数据
+        final bytes = response.data as List<int>;
+        final data = gbk_bytes.decode(bytes);
         
         // 调试输出 API 响应
         print('=== Tencent API Response for $code ===');
@@ -584,9 +587,9 @@ class TushareApi {
           final stockData = parts[1].split('~');
           if (stockData.length >= 6) {
             String name = stockData[1];
-            // 尝试修复乱码问题
-            if (name.contains('�') || name.length < 2) {
-              // 如果有乱码或名称太短，使用行业分类中的股票名称
+            // 如果名称仍然为空或乱码，使用行业分类中的股票名称
+            if (name.isEmpty || name.length < 2) {
+              // 如果名称为空或太短，使用行业分类中的股票名称
               for (final industry in _industries) {
                 final stockBasic = industry.stocks.firstWhere(
                   (s) => s.code == code,

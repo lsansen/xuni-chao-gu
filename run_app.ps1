@@ -1,5 +1,6 @@
 # 设置 Java 环境变量
-$env:JAVA_HOME = "d:\java\java21"
+# 注意：请根据您的实际Java安装路径修改JAVA_HOME
+$env:JAVA_HOME = "D:\java\java21"
 $env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
 
 # 验证 Java 版本

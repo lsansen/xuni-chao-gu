@@ -379,9 +379,6 @@ class ApiManager {
       
       // 计算日期范围
       final endDate = DateTime.now();
-      final startDate = period == 'weekly' 
-          ? endDate.subtract(const Duration(days: 120)) // 周K显示4个月
-          : endDate.subtract(const Duration(days: 30)); // 日K显示1个月
       
       // 调用新浪财经API获取K线数据
       final response = await _dio.get(

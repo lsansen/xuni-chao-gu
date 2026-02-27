@@ -2670,10 +2670,20 @@ class StockSearchDelegate extends SearchDelegate<StockBasic> {
 
     final results = <StockBasic>[];
 
+    // 1. 首先从本地列表中搜索匹配的股票（支持中文名称搜索）
+    final localResults = stocks.where((stock) {
+      return stock.name.contains(query) || stock.code.contains(query);
+    }).toList();
+    results.addAll(localResults);
+
+    // 2. 如果查询是股票代码（长度>=6），从API获取详细信息
     if (query.length >= 6) {
       final stock = await _searchStockByCode(query);
       if (stock != null) {
-        results.add(stock);
+        // 检查是否已在本地结果中
+        if (!results.any((s) => s.code == stock.code)) {
+          results.add(stock);
+        }
       }
     }
 

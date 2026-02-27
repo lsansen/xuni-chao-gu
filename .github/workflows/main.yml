@@ -24,6 +24,21 @@ jobs:
     - name: Run tests
       run: flutter test
 
+    - name: Increment version
+      run: |
+        # 读取当前版本号
+        VERSION=$(grep version pubspec.yaml | awk '{print $2}' | tr -d '"')
+        # 提取版本号和构建号
+        IFS='+' read -r VERSION_BASE BUILD_NUMBER <<< "$VERSION"
+        # 递增构建号
+        NEW_BUILD_NUMBER=$((BUILD_NUMBER + 1))
+        # 更新版本号
+        NEW_VERSION="$VERSION_BASE+$NEW_BUILD_NUMBER"
+        # 替换pubspec.yaml中的版本号
+        sed -i "s/version: .*/version: \"$NEW_VERSION\"/" pubspec.yaml
+        # 显示新版本号
+        echo "New version: $NEW_VERSION"
+
     - name: Build web
       run: flutter build web
 

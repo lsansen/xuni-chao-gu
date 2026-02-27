@@ -31,13 +31,13 @@ jobs:
       run: flutter build apk
 
     - name: Upload APK
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: app-apk
         path: build/app/outputs/flutter-apk/app-release.apk
 
     - name: Upload web build
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: web-build
         path: build/web

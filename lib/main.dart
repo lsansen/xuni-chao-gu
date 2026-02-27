@@ -1794,7 +1794,57 @@ class _HomePageState extends State<HomePage> {
         return;
       }
       
-      final buyQuantity = 100;
+      final TextEditingController quantityController = TextEditingController(text: '100');
+      final maxBuyable = (_availableFunds / stock.currentPrice).floor() ~/ 100 * 100;
+      
+      final result = await showDialog<int>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('买入${stock.name}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('股票代码: ${stock.code}'),
+              Text('当前价格: ${stock.currentPrice.toStringAsFixed(2)}元'),
+              Text('可用资金: ${_formatFunds(_availableFunds)}'),
+              Text('最大可买: $maxBuyable股'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: quantityController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: '买入数量（必须是100的整数倍）',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () {
+                final quantity = int.tryParse(quantityController.text) ?? 0;
+                if (quantity <= 0 || quantity % 100 != 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('买入数量必须是100的整数倍')),
+                  );
+                  return;
+                }
+                Navigator.pop(context, quantity);
+              },
+              child: const Text('确认买入'),
+            ),
+          ],
+        ),
+      );
+
+      if (result == null || result <= 0) return;
+      
+      final buyQuantity = result;
       final cost = stock.currentPrice * buyQuantity;
 
       if (_availableFunds < cost) {
@@ -1806,10 +1856,11 @@ class _HomePageState extends State<HomePage> {
         return;
       }
 
-      if (_totalAssets > _unlockedLimit) {
+      final newTotalAssets = _totalAssets + cost;
+      if (newTotalAssets > _unlockedLimit) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('超过额度限制')),
+            SnackBar(content: Text('超过额度限制，当前额度: ${_formatFunds(_unlockedLimit)}')),
           );
         }
         return;
@@ -1840,7 +1891,7 @@ class _HomePageState extends State<HomePage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('成功买入${stock.name}100股，花费${_formatFunds(cost)}元')),
+          SnackBar(content: Text('成功买入${stock.name}${buyQuantity}股，花费${_formatFunds(cost)}元')),
         );
       }
 

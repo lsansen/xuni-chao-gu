@@ -2534,8 +2534,9 @@ class _HomePageState extends State<HomePage> {
 class StockSearchDelegate extends SearchDelegate<StockBasic> {
   final List<StockBasic> stocks;
   final Function(StockBasic) onStockSelected;
+  final TushareApi api;
 
-  StockSearchDelegate(this.stocks, this.onStockSelected);
+  StockSearchDelegate(this.stocks, this.onStockSelected) : api = TushareApi();
 
   @override
   List<Widget> buildActions(BuildContext context) {
@@ -2559,22 +2560,59 @@ class StockSearchDelegate extends SearchDelegate<StockBasic> {
     );
   }
 
+  Future<StockBasic?> _searchStockByCode(String code) async {
+    try {
+      final stock = await api.getStockData(code);
+      if (stock.hasData) {
+        return StockBasic(
+          code: stock.code,
+          name: stock.name,
+          industry: '自定义',
+        );
+      }
+    } catch (e) {
+      print('搜索股票失败: $e');
+    }
+    return null;
+  }
+
   @override
   Widget buildResults(BuildContext context) {
     final results = stocks.where((stock) {
       return stock.name.contains(query) || stock.code.contains(query);
     }).toList();
 
-    return ListView.builder(
-      itemCount: results.length,
-      itemBuilder: (context, index) {
-        final stock = results[index];
-        return ListTile(
-          title: Text(stock.name),
-          subtitle: Text('${stock.code} - ${stock.industry}'),
-          onTap: () {
-            onStockSelected(stock);
-            close(context, stock);
+    return FutureBuilder<List<StockBasic>>(
+      future: _searchStocks(query),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(child: Text('搜索失败: ${snapshot.error}'));
+        }
+
+        final apiResults = snapshot.data ?? [];
+        final allResults = [...results, ...apiResults];
+        final uniqueResults = _removeDuplicates(allResults);
+
+        if (uniqueResults.isEmpty) {
+          return const Center(child: Text('未找到相关股票'));
+        }
+
+        return ListView.builder(
+          itemCount: uniqueResults.length,
+          itemBuilder: (context, index) {
+            final stock = uniqueResults[index];
+            return ListTile(
+              title: Text(stock.name),
+              subtitle: Text('${stock.code} - ${stock.industry}'),
+              onTap: () {
+                onStockSelected(stock);
+                close(context, stock);
+              },
+            );
           },
         );
       },
@@ -2583,24 +2621,72 @@ class StockSearchDelegate extends SearchDelegate<StockBasic> {
 
   @override
   Widget buildSuggestions(BuildContext context) {
-    final results = stocks.where((stock) {
-      return stock.name.contains(query) || stock.code.contains(query);
-    }).toList();
+    return FutureBuilder<List<StockBasic>>(
+      future: _searchStocks(query),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting && query.isNotEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-    return ListView.builder(
-      itemCount: results.length,
-      itemBuilder: (context, index) {
-        final stock = results[index];
-        return ListTile(
-          title: Text(stock.name),
-          subtitle: Text('${stock.code} - ${stock.industry}'),
-          onTap: () {
-            onStockSelected(stock);
-            close(context, stock);
+        if (snapshot.hasError) {
+          return Center(child: Text('搜索失败: ${snapshot.error}'));
+        }
+
+        final apiResults = snapshot.data ?? [];
+        final localResults = stocks.where((stock) {
+          return stock.name.contains(query) || stock.code.contains(query);
+        }).toList();
+
+        final allResults = [...localResults, ...apiResults];
+        final uniqueResults = _removeDuplicates(allResults);
+
+        if (uniqueResults.isEmpty && query.isNotEmpty) {
+          return const Center(child: Text('未找到相关股票，请输入正确的股票代码（如：600036.SH）'));
+        }
+
+        return ListView.builder(
+          itemCount: uniqueResults.length,
+          itemBuilder: (context, index) {
+            final stock = uniqueResults[index];
+            return ListTile(
+              title: Text(stock.name),
+              subtitle: Text('${stock.code} - ${stock.industry}'),
+              onTap: () {
+                onStockSelected(stock);
+                close(context, stock);
+              },
+            );
           },
         );
       },
     );
+  }
+
+  Future<List<StockBasic>> _searchStocks(String query) async {
+    if (query.isEmpty) return [];
+
+    final results = <StockBasic>[];
+
+    if (query.length >= 6) {
+      final stock = await _searchStockByCode(query);
+      if (stock != null) {
+        results.add(stock);
+      }
+    }
+
+    return results;
+  }
+
+  List<StockBasic> _removeDuplicates(List<StockBasic> stocks) {
+    final seen = <String>{};
+    final unique = <StockBasic>[];
+    for (final stock in stocks) {
+      if (!seen.contains(stock.code)) {
+        seen.add(stock.code);
+        unique.add(stock);
+      }
+    }
+    return unique;
   }
 }
 

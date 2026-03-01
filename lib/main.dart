@@ -421,8 +421,8 @@ class TushareApi {
     return DateTime.now().difference(cacheTime) < _cacheValidity;
   }
 
-  // 清理过期缓存
-  void _cleanExpiredCache() {
+  // 清理过期缓存（内存缓存）
+  void _cleanExpiredMemoryCache() {
     final now = DateTime.now();
     _cache.removeWhere((code, stock) {
       if (stock.cacheTimestamp == null) return true;

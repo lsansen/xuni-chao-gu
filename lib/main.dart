@@ -1330,7 +1330,7 @@ class _HomePageState extends State<HomePage> {
         
         return ListTile(
           title: Text(stock.name),
-          subtitle: Text('${stock.code} | ${stock.industry}'),
+          subtitle: Text(stock.code),
           trailing: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -1674,7 +1674,7 @@ class StockSearchDelegate extends SearchDelegate<StockBasic> {
             final stock = uniqueResults[index];
             return ListTile(
               title: Text(stock.name),
-              subtitle: Text('${stock.code} - ${stock.industry}'),
+              subtitle: Text(stock.code),
               onTap: () {
                 onStockSelected(stock);
                 close(context, stock);
@@ -1712,7 +1712,7 @@ class StockSearchDelegate extends SearchDelegate<StockBasic> {
             final stock = uniqueResults[index];
             return ListTile(
               title: Text(stock.name),
-              subtitle: Text('${stock.code} - ${stock.industry}'),
+              subtitle: Text(stock.code),
               onTap: () {
                 onStockSelected(stock);
                 close(context, stock);

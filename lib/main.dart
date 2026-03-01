@@ -711,6 +711,7 @@ class _HomePageState extends State<HomePage> {
   
   bool _isLoading = true;
   String _errorMessage = '';
+  int _selectedIndustryIndex = 0;
   
   RefreshController _refreshController = RefreshController(initialRefresh: false);
 
@@ -1118,154 +1119,70 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('模拟炒股'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {
-              showSearch(
-                context: context,
-                delegate: StockSearchDelegate(_tushareApi.allStocks, _buyStock),
-              );
-            },
+    return DefaultTabController(
+      length: _tushareApi.industries.length + 1,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('模拟炒股'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.search),
+              onPressed: () {
+                showSearch(
+                  context: context,
+                  delegate: StockSearchDelegate(_tushareApi.allStocks, _buyStock),
+                );
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.history),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SellRecordsPage(sellRecords: _sellRecords),
+                  ),
+                );
+              },
+            ),
+          ],
+          bottom: TabBar(
+            isScrollable: true,
+            tabs: [
+              const Tab(text: '持仓'),
+              ..._tushareApi.industries.map((industry) => Tab(text: industry.name)),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.history),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => SellRecordsPage(sellRecords: _sellRecords),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage.isNotEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _errorMessage.isNotEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(_errorMessage, style: const TextStyle(color: Colors.red)),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _initializeData,
+                          child: const Text('重试'),
+                        ),
+                      ],
+                    ),
+                  )
+                : Column(
                     children: [
-                      Text(_errorMessage, style: const TextStyle(color: Colors.red)),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _initializeData,
-                        child: const Text('重试'),
+                      _buildFundsPanel(),
+                      Expanded(
+                        child: TabBarView(
+                          children: [
+                            _buildPortfolioTab(),
+                            ..._tushareApi.industries.map((industry) => _buildIndustryTab(industry)),
+                          ],
+                        ),
                       ),
                     ],
                   ),
-                )
-              : Column(
-                  children: [
-                    _buildFundsPanel(),
-                    Expanded(
-                      child: SmartRefresher(
-                        controller: _refreshController,
-                        onRefresh: () async {
-                          await _loadStocks();
-                          _calculateTotalAssets();
-                          _refreshController.refreshCompleted();
-                        },
-                        child: _portfolio.isEmpty
-                            ? const Center(child: Text('暂无持仓，点击右上角搜索股票'))
-                            : ListView.builder(
-                                itemCount: _portfolio.length,
-                                itemBuilder: (context, index) {
-                                  final item = _portfolio[index];
-                                  final stock = _stocks.firstWhere(
-                                    (s) => s.code == item.stockCode,
-                                    orElse: () => Stock(
-                                      code: item.stockCode,
-                                      name: item.stockCode,
-                                      currentPrice: 0,
-                                      change: 0,
-                                      changePercent: 0,
-                                      historicalPrices: const [],
-                                      historicalDates: const [],
-                                    ),
-                                  );
-                                  
-                                  final currentValue = stock.currentPrice * item.quantity;
-                                  final cost = item.averagePrice * item.quantity;
-                                  final profit = currentValue - cost;
-                                  final profitRate = cost != 0 ? (profit / cost) * 100 : 0.0;
-                                  
-                                  return ListTile(
-                                    title: Text(stock.name),
-                                    subtitle: Text('${stock.code} | 持仓: ${item.quantity}股 | 成本: ${item.averagePrice.toStringAsFixed(2)}元'),
-                                    trailing: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      children: [
-                                        Text('${stock.currentPrice.toStringAsFixed(2)}元'),
-                                        Text(
-                                          '${profit >= 0 ? '+' : ''}${profit.toStringAsFixed(2)}元 (${profitRate.toStringAsFixed(2)}%)',
-                                          style: TextStyle(
-                                            color: profit >= 0 ? Colors.red : Colors.green,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    onTap: () {
-                                      showModalBottomSheet(
-                                        context: context,
-                                        builder: (context) => Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            ListTile(
-                                              title: Text('${stock.name} (${stock.code})'),
-                                              subtitle: Text('当前价格: ${stock.currentPrice.toStringAsFixed(2)}元'),
-                                            ),
-                                            ListTile(
-                                              leading: const Icon(Icons.show_chart),
-                                              title: const Text('查看详情'),
-                                              onTap: () {
-                                                Navigator.pop(context);
-                                                Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (context) => StockDetailPage(stock: stock),
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                            ListTile(
-                                              leading: const Icon(Icons.sell),
-                                              title: const Text('卖出'),
-                                              onTap: () {
-                                                Navigator.pop(context);
-                                                _sellStock(StockBasic(
-                                                  code: stock.code,
-                                                  name: stock.name,
-                                                  industry: '',
-                                                ));
-                                              },
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  );
-                                },
-                              ),
-                      ),
-                    ),
-                  ],
-                ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          showSearch(
-            context: context,
-            delegate: StockSearchDelegate(_tushareApi.allStocks, _buyStock),
-          );
-        },
-        child: const Icon(Icons.add),
       ),
     );
   }
@@ -1303,6 +1220,172 @@ class _HomePageState extends State<HomePage> {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ],
+    );
+  }
+
+  Widget _buildPortfolioTab() {
+    return SmartRefresher(
+      controller: _refreshController,
+      onRefresh: () async {
+        await _loadStocks();
+        _calculateTotalAssets();
+        _refreshController.refreshCompleted();
+      },
+      child: _portfolio.isEmpty
+          ? const Center(child: Text('暂无持仓，点击右上角搜索股票'))
+          : ListView.builder(
+              itemCount: _portfolio.length,
+              itemBuilder: (context, index) {
+                final item = _portfolio[index];
+                final stock = _stocks.firstWhere(
+                  (s) => s.code == item.stockCode,
+                  orElse: () => Stock(
+                    code: item.stockCode,
+                    name: item.stockCode,
+                    currentPrice: 0,
+                    change: 0,
+                    changePercent: 0,
+                    historicalPrices: const [],
+                    historicalDates: const [],
+                  ),
+                );
+                
+                final currentValue = stock.currentPrice * item.quantity;
+                final cost = item.averagePrice * item.quantity;
+                final profit = currentValue - cost;
+                final profitRate = cost != 0 ? (profit / cost) * 100 : 0.0;
+                
+                return ListTile(
+                  title: Text(stock.name),
+                  subtitle: Text('${stock.code} | 持仓: ${item.quantity}股 | 成本: ${item.averagePrice.toStringAsFixed(2)}元'),
+                  trailing: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('${stock.currentPrice.toStringAsFixed(2)}元'),
+                      Text(
+                        '${profit >= 0 ? '+' : ''}${profit.toStringAsFixed(2)}元 (${profitRate.toStringAsFixed(2)}%)',
+                        style: TextStyle(
+                          color: profit >= 0 ? Colors.red : Colors.green,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                  onTap: () {
+                    showModalBottomSheet(
+                      context: context,
+                      builder: (context) => Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ListTile(
+                            title: Text('${stock.name} (${stock.code})'),
+                            subtitle: Text('当前价格: ${stock.currentPrice.toStringAsFixed(2)}元'),
+                          ),
+                          ListTile(
+                            leading: const Icon(Icons.show_chart),
+                            title: const Text('查看详情'),
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => StockDetailPage(stock: stock),
+                                ),
+                              );
+                            },
+                          ),
+                          ListTile(
+                            leading: const Icon(Icons.sell),
+                            title: const Text('卖出'),
+                            onTap: () {
+                              Navigator.pop(context);
+                              _sellStock(StockBasic(
+                                code: stock.code,
+                                name: stock.name,
+                                industry: '',
+                              ));
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+    );
+  }
+
+  Widget _buildIndustryTab(Industry industry) {
+    final industryStocks = _stocks.where((stock) {
+      return industry.stocks.any((basic) => basic.code == stock.code);
+    }).toList();
+
+    return ListView.builder(
+      itemCount: industryStocks.length,
+      itemBuilder: (context, index) {
+        final stock = industryStocks[index];
+        final isInPortfolio = _portfolio.any((item) => item.stockCode == stock.code);
+        
+        return ListTile(
+          title: Text(stock.name),
+          subtitle: Text('${stock.code} | ${stock.industry}'),
+          trailing: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('${stock.currentPrice.toStringAsFixed(2)}元'),
+              Text(
+                '${stock.change >= 0 ? '+' : ''}${stock.changePercent.toStringAsFixed(2)}%',
+                style: TextStyle(
+                  color: stock.changePercent >= 0 ? Colors.red : Colors.green,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          onTap: () {
+            showModalBottomSheet(
+              context: context,
+              builder: (context) => Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    title: Text('${stock.name} (${stock.code})'),
+                    subtitle: Text('当前价格: ${stock.currentPrice.toStringAsFixed(2)}元'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.show_chart),
+                    title: const Text('查看详情'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => StockDetailPage(stock: stock),
+                        ),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.add_shopping_cart),
+                    title: const Text('买入'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _buyStock(StockBasic(
+                        code: stock.code,
+                        name: stock.name,
+                        industry: industry.name,
+                      ));
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -729,6 +729,12 @@ class _HomePageState extends State<HomePage> {
       _initialFunds = _prefs.getDouble('initialFunds') ?? 500000.0;
       _unlockedLimit = _prefs.getDouble('unlockedLimit') ?? 500000.0;
       
+      // 确保额度不会低于初始额度 50 万
+      if (_unlockedLimit < 500000.0) {
+        _unlockedLimit = 500000.0;
+        _prefs.setDouble('unlockedLimit', _unlockedLimit);
+      }
+      
       // 加载持仓数据
       final portfolioJson = _prefs.getString('portfolio');
       if (portfolioJson != null) {
@@ -828,8 +834,14 @@ class _HomePageState extends State<HomePage> {
       newLimit = 1000000.0;
     }
 
+    // 确保额度不会低于初始额度 50 万
+    if (newLimit < 500000.0) {
+      newLimit = 500000.0;
+    }
+
     if (newLimit > _unlockedLimit) {
       _unlockedLimit = newLimit;
+      _prefs.setDouble('unlockedLimit', _unlockedLimit);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('额度升级成功！当前最高可使用${_formatFunds(newLimit)}元')),
